@@ -1,0 +1,26 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "🚀 Run Flask Server (HTML/CSS Web Portal)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/flask_app.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "🚀 Run Streamlit App",
+            "type": "python",
+            "request": "launch",
+            "module": "streamlit",
+            "args": [
+                "run",
+                "${workspaceFolder}/app.py",
+                "--server.port=8501",
+                "--server.headless=false",
+                "--browser.gatherUsageStats=false"
+            ],
+            "console": "integratedTerminal"
+        }
+    ]
+}
