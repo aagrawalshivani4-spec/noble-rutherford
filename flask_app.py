@@ -87,13 +87,22 @@ def process_document():
             document_input = request.form.get("text", "")
             filename = request.form.get("filename", "input_text.txt")
 
+    print(f"DEBUG /api/process: is_json={request.is_json}, form_keys={list(request.form.keys())}, files={list(request.files.keys())}")
+    if isinstance(document_input, (bytes, bytearray)):
+        print(f"DEBUG: document_input is bytes, len={len(document_input)}, filename={filename}")
+    else:
+        print(f"DEBUG: document_input is {type(document_input)}, len={len(str(document_input))}, filename={filename}")
+
     if document_input is None:
+        print("DEBUG 400: document_input is None")
         return jsonify({"error": "No document content provided. Please upload a file or paste text."}), 400
 
     if isinstance(document_input, str) and not document_input.strip():
+        print("DEBUG 400: document_input is empty string")
         return jsonify({"error": "No document content provided. Please upload a file or paste text."}), 400
 
     if isinstance(document_input, (bytes, bytearray)) and len(document_input) == 0:
+        print("DEBUG 400: document_input is 0 bytes")
         return jsonify({"error": "The uploaded file is empty (0 bytes)."}), 400
 
     # Ensure selected model is valid
@@ -110,9 +119,11 @@ def process_document():
         )
 
         if state.status == "ERROR":
+            print(f"DEBUG 500: Workflow error: {state.error_message}")
             return jsonify({"error": f"Workflow failed: {state.error_message}"}), 500
 
         if not state.raw_text or not state.raw_text.strip():
+            print(f"DEBUG 400: raw_text is empty for {filename}!")
             return jsonify({
                 "error": f"Could not extract readable text from '{filename}'. If this is a scanned PDF image, please provide a PDF with selectable text or paste the text directly."
             }), 400

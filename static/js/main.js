@@ -68,8 +68,27 @@ function handleFileSelect(input) {
     }
 }
 
+// UI Error Banner Helper
+function showError(msg) {
+    const box = document.getElementById('uploadErrorAlert');
+    const txt = document.getElementById('uploadErrorMessage');
+    if (box && txt) {
+        txt.innerText = msg;
+        box.style.display = 'block';
+        box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+        alert(`Error: ${msg}`);
+    }
+}
+
+function hideError() {
+    const box = document.getElementById('uploadErrorAlert');
+    if (box) box.style.display = 'none';
+}
+
 // Clear Input
 function clearInput() {
+    hideError();
     document.getElementById('documentTextInput').value = '';
     const fileInput = document.getElementById('fileUpload');
     if (fileInput) fileInput.value = '';
@@ -91,7 +110,7 @@ function clearInput() {
 }
 
 // Initialize Drag and Drop on dropzone
-document.addEventListener('DOMContentLoaded', () => {
+function initDropzone() {
     const dropzone = document.getElementById('fileDropzone');
     if (dropzone) {
         ['dragenter', 'dragover'].forEach(eventName => {
@@ -120,10 +139,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }, false);
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDropzone);
+} else {
+    initDropzone();
+}
 
 // Load Pre-Packaged Sample Scheme
 async function loadSample(sampleId) {
+    hideError();
     try {
         const res = await fetch(`/api/sample/${sampleId}`);
         const data = await res.json();
@@ -141,29 +167,32 @@ async function loadSample(sampleId) {
             }
         }
     } catch (e) {
-        alert('Could not load sample document.');
+        showError('Could not load sample document.');
     }
 }
 
 // Process Document with Agentic NLP Pipeline
 async function processDocument() {
+    hideError();
     const textInput = document.getElementById('documentTextInput').value.trim();
     const targetLang = document.getElementById('targetLangSelect').value;
     const model = document.getElementById('modelSelect').value;
     const btn = document.getElementById('processBtn');
     const spinner = document.getElementById('btnSpinner');
 
-    // Decide which input to process based on active mode
-    let useFile = (currentInputMode === 'file' && activeFile) || (!textInput && activeFile);
+    // Strict mode check based on selected tab
+    const useFile = (currentInputMode === 'file');
 
-    if (useFile && !activeFile) {
-        alert('Please select or drag-and-drop a PDF or TXT file first!');
-        return;
-    }
-
-    if (!useFile && !textInput) {
-        alert('Please paste document text or upload a PDF/TXT government document first!');
-        return;
+    if (useFile) {
+        if (!activeFile) {
+            showError('Please click the box above to choose a PDF or TXT file, or drag and drop one.');
+            return;
+        }
+    } else {
+        if (!textInput) {
+            showError('Please paste official government scheme or circular text into the box above.');
+            return;
+        }
     }
 
     btn.disabled = true;
@@ -192,14 +221,14 @@ async function processDocument() {
 
         const data = await response.json();
         if (!response.ok || data.error) {
-            alert(`Error: ${data.error || 'Failed to process document'}`);
+            showError(data.error || 'Failed to process document.');
             return;
         }
 
         renderResults(data);
 
     } catch (err) {
-        alert(`Failed to process document: ${err.message}`);
+        showError(`Failed to process document: ${err.message}`);
     } finally {
         btn.disabled = false;
         spinner.style.display = 'none';

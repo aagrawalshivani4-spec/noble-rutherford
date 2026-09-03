@@ -116,13 +116,18 @@
                     <textarea id="documentTextInput" class="form-textarea" placeholder="Paste official government gazette, policy document, circular, or scheme text here..." rows="6"></textarea>
                 </div>
 
+                <!-- Optional Error Alert Banner -->
+                <div id="uploadErrorAlert" style="display: none; background: #FEF2F2; border: 1px solid #FCA5A5; color: #991B1B; padding: 0.8rem 1rem; border-radius: 8px; margin: 1rem 0; font-size: 0.9rem;">
+                    <strong>⚠️ Note: </strong><span id="uploadErrorMessage"></span>
+                </div>
+
                 <div id="fileInputContainer" style="display: none;">
-                    <div class="file-dropzone" id="fileDropzone" onclick="document.getElementById('fileUpload').click()">
+                    <label for="fileUpload" class="file-dropzone" id="fileDropzone" style="display: block; cursor: pointer;">
                         <div class="drop-icon" id="dropzoneIcon">📤</div>
                         <p id="dropzoneMessage"><b>Click to select PDF or TXT document</b> or drag and drop here</p>
                         <span class="file-spec" id="dropzoneSpec">Supports .PDF (with PyPDF2 extraction) & .TXT UTF-8 files</span>
                         <input type="file" id="fileUpload" accept=".pdf,.txt" style="display: none;" onchange="handleFileSelect(this)">
-                    </div>
+                    </label>
                 </div>
 
                 <div class="action-bar">
@@ -356,7 +361,7 @@
         </main>
     </div>
 
-    <!-- Custom JS -->
-    <script src="/static/js/main.js"></script>
+    <!-- Custom JS (with cache-buster) -->
+    <script src="/static/js/main.js?v=2.2"></script>
 </body>
 </html>
