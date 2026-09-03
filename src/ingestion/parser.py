@@ -43,37 +43,55 @@ class DocumentParser:
         else:
             stream = file_bytes_or_path
 
-        reader = PyPDF2.PdfReader(stream)
-        num_pages = len(reader.pages)
-        pages_content = []
-        full_text_list = []
+        try:
+            reader = PyPDF2.PdfReader(stream)
+            num_pages = len(reader.pages)
+            pages_content = []
+            full_text_list = []
 
-        for idx, page in enumerate(reader.pages):
-            page_text = page.extract_text() or ""
-            page_text = page_text.strip()
-            pages_content.append({"page_num": idx + 1, "text": page_text})
-            if page_text:
-                full_text_list.append(page_text)
+            for idx, page in enumerate(reader.pages):
+                try:
+                    page_text = page.extract_text() or ""
+                except Exception:
+                    page_text = ""
+                page_text = page_text.strip()
+                pages_content.append({"page_num": idx + 1, "text": page_text})
+                if page_text:
+                    full_text_list.append(page_text)
 
-        if isinstance(file_bytes_or_path, str):
-            stream.close()
+            if isinstance(file_bytes_or_path, str) and hasattr(stream, "close"):
+                stream.close()
 
-        full_text = "\n\n".join(full_text_list)
-        lines = [line.strip() for line in full_text.split("\n") if line.strip()]
+            full_text = "\n\n".join(full_text_list)
+            lines = [line.strip() for line in full_text.split("\n") if line.strip()]
 
-        return {
-            "format": "PDF",
-            "page_count": num_pages,
-            "raw_text": full_text,
-            "line_count": len(lines),
-            "char_count": len(full_text),
-            "word_count": len(full_text.split()),
-            "pages": pages_content,
-        }
+            return {
+                "format": "PDF",
+                "page_count": num_pages,
+                "raw_text": full_text,
+                "line_count": len(lines),
+                "char_count": len(full_text),
+                "word_count": len(full_text.split()),
+                "pages": pages_content,
+            }
+        except Exception as e:
+            return {
+                "format": "PDF",
+                "page_count": 0,
+                "raw_text": "",
+                "line_count": 0,
+                "char_count": 0,
+                "word_count": 0,
+                "pages": [],
+                "error": str(e),
+            }
 
     @classmethod
     def parse(cls, file_obj, filename: str = "") -> Dict[str, Any]:
         """Universal entrypoint for document ingestion."""
+        if isinstance(file_obj, dict) and "raw_text" in file_obj:
+            return file_obj
+
         name_lower = filename.lower()
         if name_lower.endswith(".pdf"):
             if hasattr(file_obj, "read"):

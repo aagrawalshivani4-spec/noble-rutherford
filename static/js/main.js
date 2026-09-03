@@ -5,6 +5,7 @@
 
 let activeFile = null;
 let accuracyChartInstance = null;
+let currentInputMode = 'text';
 
 // Tab Switching
 function showTab(tabId) {
@@ -20,6 +21,7 @@ function showTab(tabId) {
 
 // Input Mode Switching (Text vs File)
 function switchInputMode(mode) {
+    currentInputMode = mode;
     document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
     if (mode === 'text') {
         document.querySelector('.mode-tab:nth-child(1)').classList.add('active');
@@ -32,23 +34,93 @@ function switchInputMode(mode) {
     }
 }
 
-// Handle File Selection
+// Set active file and update UI
+function setFile(file) {
+    if (!file) return;
+    activeFile = file;
+    const sizeKb = (file.size / 1024).toFixed(1);
+    
+    const tag = document.getElementById('activeFileTag');
+    if (tag) {
+        tag.innerText = `📄 ${file.name} (${sizeKb} KB)`;
+        tag.style.display = 'inline-block';
+    }
+
+    const icon = document.getElementById('dropzoneIcon');
+    if (icon) icon.innerText = '✅';
+
+    const msg = document.getElementById('dropzoneMessage');
+    if (msg) {
+        msg.innerHTML = `<strong style="color: #16a34a;">${file.name}</strong> (${sizeKb} KB)<br><small style="color: #2563eb; font-weight: 600;">File loaded! Click 'Process Document' below or click here to change.</small>`;
+    }
+
+    const spec = document.getElementById('dropzoneSpec');
+    if (spec) {
+        const ext = file.name.split('.').pop().toUpperCase();
+        spec.innerText = `Ready to process ${ext} document with Agentic NLP`;
+    }
+}
+
+// Handle File Selection from input[type=file]
 function handleFileSelect(input) {
     if (input.files && input.files[0]) {
-        activeFile = input.files[0];
-        document.getElementById('activeFileTag').innerText = `📄 ${activeFile.name} (${(activeFile.size / 1024).toFixed(1)} KB)`;
-        document.getElementById('activeFileTag').style.display = 'inline-block';
+        setFile(input.files[0]);
     }
 }
 
 // Clear Input
 function clearInput() {
     document.getElementById('documentTextInput').value = '';
-    document.getElementById('fileUpload').value = '';
+    const fileInput = document.getElementById('fileUpload');
+    if (fileInput) fileInput.value = '';
     activeFile = null;
-    document.getElementById('activeFileTag').innerText = 'No file loaded';
+
+    const tag = document.getElementById('activeFileTag');
+    if (tag) tag.innerText = 'No file loaded';
+
+    const icon = document.getElementById('dropzoneIcon');
+    if (icon) icon.innerText = '📤';
+
+    const msg = document.getElementById('dropzoneMessage');
+    if (msg) msg.innerHTML = '<b>Click to select PDF or TXT document</b> or drag and drop here';
+
+    const spec = document.getElementById('dropzoneSpec');
+    if (spec) spec.innerText = 'Supports .PDF (with PyPDF2 extraction) & .TXT UTF-8 files';
+
     document.getElementById('resultsWorkspace').style.display = 'none';
 }
+
+// Initialize Drag and Drop on dropzone
+document.addEventListener('DOMContentLoaded', () => {
+    const dropzone = document.getElementById('fileDropzone');
+    if (dropzone) {
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.style.borderColor = '#2563eb';
+                dropzone.style.background = '#eff6ff';
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.style.borderColor = '';
+                dropzone.style.background = '';
+            }, false);
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files && files[0]) {
+                setFile(files[0]);
+            }
+        }, false);
+    }
+});
 
 // Load Pre-Packaged Sample Scheme
 async function loadSample(sampleId) {
@@ -81,8 +153,16 @@ async function processDocument() {
     const btn = document.getElementById('processBtn');
     const spinner = document.getElementById('btnSpinner');
 
-    if (!activeFile && !textInput) {
-        alert('Please paste text or upload a PDF/TXT government document first!');
+    // Decide which input to process based on active mode
+    let useFile = (currentInputMode === 'file' && activeFile) || (!textInput && activeFile);
+
+    if (useFile && !activeFile) {
+        alert('Please select or drag-and-drop a PDF or TXT file first!');
+        return;
+    }
+
+    if (!useFile && !textInput) {
+        alert('Please paste document text or upload a PDF/TXT government document first!');
         return;
     }
 
@@ -91,7 +171,7 @@ async function processDocument() {
 
     try {
         let response;
-        if (activeFile) {
+        if (useFile) {
             const formData = new FormData();
             formData.append('file', activeFile);
             formData.append('target_language', targetLang);
@@ -111,8 +191,8 @@ async function processDocument() {
         }
 
         const data = await response.json();
-        if (data.error) {
-            alert(`Error: ${data.error}`);
+        if (!response.ok || data.error) {
+            alert(`Error: ${data.error || 'Failed to process document'}`);
             return;
         }
 

@@ -7,9 +7,8 @@ Guide: Prof. Sangeetha S | HOD: Dr. Indiramma M
 
 import os
 import io
-import json
 from flask import Flask, render_template, request, jsonify, send_file, Response
-from src.config import SUPPORTED_LANGUAGES, DEFAULT_TARGET_LANGUAGE, SUMMARIZATION_MODELS
+from src.config import SUPPORTED_LANGUAGES, DEFAULT_TARGET_LANGUAGE, SUMMARIZATION_MODELS, DEFAULT_SUMMARIZATION_MODEL
 from src.agent.controller import AgenticNLPController
 from src.agent.workflow_state import WorkflowExecutionState
 from src.qa.rag_engine import DocumentQAEngine
@@ -64,75 +63,100 @@ def process_document():
     """Main Agentic NLP Workflow execution API."""
     global _latest_state, _latest_qa_engine
     
-    doc_text = ""
+    document_input = None
     filename = "document.txt"
     target_lang = DEFAULT_TARGET_LANGUAGE
+    selected_model = DEFAULT_SUMMARIZATION_MODEL
 
     if request.is_json:
-        data = request.get_json()
-        doc_text = data.get("text", "")
+        data = request.get_json() or {}
+        document_input = data.get("text", "")
         filename = data.get("filename", "pasted_text.txt")
         target_lang = data.get("target_language", DEFAULT_TARGET_LANGUAGE)
+        selected_model = data.get("model", DEFAULT_SUMMARIZATION_MODEL)
     else:
         target_lang = request.form.get("target_language", DEFAULT_TARGET_LANGUAGE)
+        selected_model = request.form.get("model", DEFAULT_SUMMARIZATION_MODEL)
         
         if 'file' in request.files and request.files['file'].filename != '':
             uploaded_file = request.files['file']
             filename = uploaded_file.filename
             file_bytes = uploaded_file.read()
-            doc_text = DocumentParser.parse(file_bytes, filename)
+            document_input = file_bytes
         else:
-            doc_text = request.form.get("text", "")
+            document_input = request.form.get("text", "")
             filename = request.form.get("filename", "input_text.txt")
 
-    if not doc_text or not doc_text.strip():
+    if document_input is None:
         return jsonify({"error": "No document content provided. Please upload a file or paste text."}), 400
 
-    # Execute Agentic NLP Pipeline
-    controller = AgenticNLPController()
-    state = controller.execute_workflow(
-        document_input=doc_text,
-        filename=filename,
-        target_language=target_lang
-    )
+    if isinstance(document_input, str) and not document_input.strip():
+        return jsonify({"error": "No document content provided. Please upload a file or paste text."}), 400
 
-    _latest_state = state
-    _latest_qa_engine = DocumentQAEngine(doc_text)
+    if isinstance(document_input, (bytes, bytearray)) and len(document_input) == 0:
+        return jsonify({"error": "The uploaded file is empty (0 bytes)."}), 400
 
-    # Format trace for frontend JSON
-    trace_list = []
-    for step in state.agent_trace:
-        trace_list.append({
-            "step_number": step.step_number,
-            "step_name": step.step_name,
-            "status": step.status,
-            "duration_sec": step.duration_sec,
-            "description": step.details,
-            "metadata": step.metadata
-        })
+    # Ensure selected model is valid
+    if selected_model not in SUMMARIZATION_MODELS and selected_model not in SUMMARIZATION_MODELS.values():
+        selected_model = DEFAULT_SUMMARIZATION_MODEL
 
-    response_data = {
-        "status": state.status,
-        "filename": state.document_name,
-        "source_language_code": state.source_language_code,
-        "source_language_name": state.source_language_name,
-        "source_script": state.script_type,
-        "target_language_code": state.target_language_code,
-        "target_language_name": state.target_language_name,
-        "word_count": state.word_count,
-        "summary_word_count": state.summary_word_count,
-        "compression_ratio": state.compression_ratio,
-        "total_latency_sec": state.total_latency_sec,
-        "executive_summary": state.executive_summary,
-        "bullet_points": state.bullet_points,
-        "translated_summary": state.translated_summary,
-        "translated_bullet_points": state.translated_bullet_points,
-        "extracted_entities": state.extracted_entities,
-        "evaluation_metrics": state.evaluation_metrics,
-        "agent_trace": trace_list
-    }
+    try:
+        # Execute Agentic NLP Pipeline
+        controller = AgenticNLPController(summarizer_model=selected_model)
+        state = controller.execute_workflow(
+            document_input=document_input,
+            filename=filename,
+            target_language=target_lang
+        )
 
-    return jsonify(response_data)
+        if state.status == "ERROR":
+            return jsonify({"error": f"Workflow failed: {state.error_message}"}), 500
+
+        if not state.raw_text or not state.raw_text.strip():
+            return jsonify({
+                "error": f"Could not extract readable text from '{filename}'. If this is a scanned PDF image, please provide a PDF with selectable text or paste the text directly."
+            }), 400
+
+        _latest_state = state
+        _latest_qa_engine = DocumentQAEngine(state.raw_text)
+
+        # Format trace for frontend JSON
+        trace_list = []
+        for step in state.agent_trace:
+            trace_list.append({
+                "step_number": step.step_number,
+                "step_name": step.step_name,
+                "status": step.status,
+                "duration_sec": step.duration_sec,
+                "description": step.details,
+                "metadata": step.metadata
+            })
+
+        response_data = {
+            "status": state.status,
+            "filename": state.document_name,
+            "source_language_code": state.source_language_code,
+            "source_language_name": state.source_language_name,
+            "source_script": state.script_type,
+            "target_language_code": state.target_language_code,
+            "target_language_name": state.target_language_name,
+            "word_count": state.word_count,
+            "summary_word_count": state.summary_word_count,
+            "compression_ratio": state.compression_ratio,
+            "total_latency_sec": state.total_latency_sec,
+            "executive_summary": state.executive_summary,
+            "bullet_points": state.bullet_points,
+            "translated_summary": state.translated_summary,
+            "translated_bullet_points": state.translated_bullet_points,
+            "extracted_entities": state.extracted_entities,
+            "evaluation_metrics": state.evaluation_metrics,
+            "agent_trace": trace_list
+        }
+
+        return jsonify(response_data)
+
+    except Exception as exc:
+        return jsonify({"error": f"Server processing error: {str(exc)}"}), 500
 
 
 @app.route("/api/qa", methods=["POST"])

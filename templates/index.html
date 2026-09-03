@@ -117,10 +117,10 @@
                 </div>
 
                 <div id="fileInputContainer" style="display: none;">
-                    <div class="file-dropzone" onclick="document.getElementById('fileUpload').click()">
-                        <div class="drop-icon">📤</div>
-                        <p><b>Click to select PDF or TXT document</b> or drag and drop here</p>
-                        <span class="file-spec">Supports .PDF (with PyPDF2 extraction) & .TXT UTF-8 files</span>
+                    <div class="file-dropzone" id="fileDropzone" onclick="document.getElementById('fileUpload').click()">
+                        <div class="drop-icon" id="dropzoneIcon">📤</div>
+                        <p id="dropzoneMessage"><b>Click to select PDF or TXT document</b> or drag and drop here</p>
+                        <span class="file-spec" id="dropzoneSpec">Supports .PDF (with PyPDF2 extraction) & .TXT UTF-8 files</span>
                         <input type="file" id="fileUpload" accept=".pdf,.txt" style="display: none;" onchange="handleFileSelect(this)">
                     </div>
                 </div>

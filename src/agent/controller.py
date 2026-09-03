@@ -12,14 +12,15 @@ from src.language.detector import LanguageDetector
 from src.summarization.summarizer import DocumentSummarizer
 from src.translation.translator import MultilingualTranslator
 from src.extraction.extractor import KeyInformationExtractor
-from src.config import SUPPORTED_LANGUAGES, DEFAULT_TARGET_LANGUAGE
+from src.config import SUPPORTED_LANGUAGES, DEFAULT_TARGET_LANGUAGE, SUMMARIZATION_MODELS
 
 
 class AgenticNLPController:
     """Intelligent controller that plans, executes, and validates the multilingual NLP pipeline."""
 
     def __init__(self, summarizer_model: str = "distilbart"):
-        self.summarizer = DocumentSummarizer(model_name=summarizer_model)
+        resolved_model = SUMMARIZATION_MODELS.get(summarizer_model, summarizer_model)
+        self.summarizer = DocumentSummarizer(model_name=resolved_model)
         self.translator = MultilingualTranslator()
         self.extractor = KeyInformationExtractor()
 
